@@ -53,7 +53,7 @@ const portfolioProjects = [{
   },
   features: ["Prenotazioni tavoli", "Chatbot integrato", "Automazioni richieste"]
 }, {
-  title: "Glacia",
+  title: "Glacier",
   category: "SaaS Platform",
   description: "È una piattaforma di automazione next‑gen: engine sub‑millisecondo, AI‑driven workflow, sicurezza quantistica e 5 000+ integrazioni. Prova il demo ora!",
   url: "https://glacierautomation.vercel.app/",
@@ -89,17 +89,17 @@ const portfolioProjects = [{
   },
   features: ["Design Minimalista", "Form Contatti Ottimizzato", "Sezione Servizi Chiara"]
 }, {
-  title: "NextUp SaaS",
-  category: "SaaS Platform",
-  description: "Piattaforma SaaS completa con dashboard analytics, gestione utenti multiruolo e integrazione pagamenti Stripe. Architettura scalabile progettata per crescita rapida e ottimizzazione conversioni",
-  url: "https://nextupsaas.base44.app",
-  tech: ["React", "Node.js", "PostgreSQL", "Stripe"],
+  title: "NEXUS Prime – Wealth Reimagined",
+  category: "FinTech / Investment Platform",
+  description: "Piattaforma he offre infrastruttura istituzionale, feed di mercato in tempo reale (BTC, ETH, indici, oro…) e sei moduli chiave: Trading quantitativo, Wealth Management, Sicurezza biometrica, Crypto Gateway, Liquidità globale, AI Forecasting",
+  url: "https://nexuspr1me.vercel.app/",
+  tech: ["React", "Node.js", "Tailwind CSS", "Chart/Recharts per i ticker di mercato"],
   metrics: {
     performance: "92/100",
-    conversions: "+230%",
-    loadTime: "1.4s"
+    conversions: "+150%",
+    loadTime: "0.9s"
   },
-  features: ["Dashboard Real-time", "Sistema Multiruolo", "Pagamenti Ricorrenti"]
+  features: ["Live Nexus Feed con prezzi aggiornati in tempo reale", "AI Advisor ", "Autenticazione biometrica a più fattori"]
 }, {
   title: "Studio Legale Grillo",
   category: "Legal Services Premium",
