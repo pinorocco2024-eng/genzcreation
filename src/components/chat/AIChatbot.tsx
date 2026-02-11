@@ -26,7 +26,7 @@ export const AIChatbot = () => {
 
   // ✅ Cambia QUI l'URL del tuo backend (Gemini)
   // Dev: http://localhost:3001/api/chat
-  // Prod: https://tuodominio.it/api/chat
+  // Prod: https://genzcreation.it/api/chat
   const CHAT_URL =
     (import.meta.env.VITE_CHAT_URL as string) || "http://localhost:3001/api/chat";
 
