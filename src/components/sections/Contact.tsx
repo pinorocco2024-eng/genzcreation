@@ -132,18 +132,7 @@ export const Contact = () => {
               >
                 Invia un Messaggio
               </motion.h3>
-              <motion.div 
-                className="mb-4 p-3 sm:p-4 bg-primary/10 rounded-lg border border-primary/20"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={isVisible ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }}
-                transition={{ delay: 0.4 }}
-              >
-                <p className="text-xs sm:text-sm text-primary font-medium">
-                  💌 I messaggi vengono inviati direttamente a: info.genzcreationsite@gmail.com
-                </p>
-                <p className="text-xs text-foreground/70 mt-1">
-                  Riceverai una risposta entro 24 ore
-                </p>
+              <motion.div>
               </motion.div>
               <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-8">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
