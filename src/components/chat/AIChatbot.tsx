@@ -22,13 +22,17 @@ export const AIChatbot = () => {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { setFormData } = useContactForm();
 
-  // ✅ Cambia QUI l'URL del tuo backend (Gemini)
-  // Dev: http://localhost:3001/api/chat
-  // Prod: https://genzcreation.it/api/chat
-  const CHAT_URL =
-    (import.meta.env.VITE_CHAT_URL as string) || "http://localhost:3001/api/chat";
+  // Se il provider non c'è, non facciamo crashare il bot
+  let setFormData: ((data: any) => void) | undefined;
+  try {
+    ({ setFormData } = useContactForm());
+  } catch {
+    setFormData = undefined;
+  }
+
+  // Se usi il proxy Vite, lascia così:
+  const CHAT_URL = "/api/chat";
 
   // --- Extract contact info with validation ---
   const extractContactInfo = (message: string) => {
@@ -78,7 +82,11 @@ export const AIChatbot = () => {
       const match = pattern.exec(message);
       if (match?.[1]) {
         const potentialSubject = match[1].trim();
-        const subjectResult = z.string().min(3).max(200).safeParse(potentialSubject);
+        const subjectResult = z
+          .string()
+          .min(3)
+          .max(200)
+          .safeParse(potentialSubject);
         if (subjectResult.success) {
           subject = potentialSubject;
           break;
@@ -89,12 +97,10 @@ export const AIChatbot = () => {
     return { email: validatedEmail, name, subject };
   };
 
-  // Auto-scroll (robusto, senza dipendere da ref interno di ScrollArea)
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen]);
 
-  // Welcome bubble after 2 seconds if chat closed and no messages
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!isOpen && messages.length === 0) setShowWelcome(true);
@@ -110,9 +116,11 @@ export const AIChatbot = () => {
 
     setMessages(updatedMessages);
 
-    // Extract contact info and prefill contact form
     const contactInfo = extractContactInfo(input);
-    if (contactInfo.email || contactInfo.name || contactInfo.subject) {
+    if (
+      setFormData &&
+      (contactInfo.email || contactInfo.name || contactInfo.subject)
+    ) {
       setFormData({
         email: contactInfo.email,
         name: contactInfo.name,
@@ -121,7 +129,9 @@ export const AIChatbot = () => {
       });
 
       setTimeout(() => {
-        document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
+        document
+          .getElementById("contact")
+          ?.scrollIntoView({ behavior: "smooth" });
       }, 500);
     }
 
@@ -136,77 +146,26 @@ export const AIChatbot = () => {
         body: JSON.stringify({ messages: updatedMessages }),
       });
 
+      const json = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        if (response.status === 429) {
-          toast({
-            title: "Troppe richieste",
-            description: "Per favore riprova tra qualche istante.",
-            variant: "destructive",
-          });
-          return;
-        }
-        if (response.status === 402) {
-          toast({
-            title: "Servizio non disponibile",
-            description: "Il servizio è temporaneamente non disponibile.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const errText = await response.text().catch(() => "");
-        throw new Error(errText || `HTTP ${response.status}`);
+        const msg =
+          json?.error ||
+          `Errore HTTP ${response.status}`;
+        throw new Error(msg);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("Nessuno stream disponibile");
+      const assistantText =
+        typeof json?.text === "string" && json.text.trim()
+          ? json.text
+          : "Ok.";
 
-      const decoder = new TextDecoder();
-      let assistantContent = "";
-      let buffer = "";
-
-      // Inserisci subito il messaggio assistant "vuoto" così non “salta”
-      setMessages([...updatedMessages, { role: "assistant", content: "" }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        let newlineIndex: number;
-
-        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, newlineIndex);
-          buffer = buffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data:")) continue;
-
-          const jsonStr = line.replace(/^data:\s*/, "").trim();
-          if (!jsonStr) continue;
-          if (jsonStr === "[DONE]") break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed?.choices?.[0]?.delta?.content;
-
-            if (typeof content === "string" && content.length > 0) {
-              assistantContent += content;
-              setMessages([...updatedMessages, { role: "assistant", content: assistantContent }]);
-            }
-          } catch {
-            // se la riga è spezzata a metà, rimetti nel buffer
-            buffer = line + "\n" + buffer;
-            break;
-          }
-        }
-      }
+      setMessages([...updatedMessages, { role: "assistant", content: assistantText }]);
     } catch (error: any) {
       console.error("Chat error:", error);
       toast({
         title: "Errore",
-        description: "Si è verificato un errore. Riprova più tardi.",
+        description: error?.message || "Si è verificato un errore. Riprova più tardi.",
         variant: "destructive",
       });
     } finally {
@@ -246,7 +205,9 @@ export const AIChatbot = () => {
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-foreground font-medium mb-1">Ciao! 👋</p>
+                  <p className="text-sm text-foreground font-medium mb-1">
+                    Ciao! 👋
+                  </p>
                   <p className="text-xs text-foreground/70">
                     Hai domande sui nostri servizi? Sono qui per aiutarti!
                   </p>
