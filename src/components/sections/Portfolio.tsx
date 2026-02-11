@@ -42,7 +42,7 @@ const portfolioProjects = [{
   features: ["Chatbot integrato", "Blog Personale", "Automazione Prenotazioni"]
 }, {
   title: "La Bulle Legnano",
-  category: "Legal Services Platform",
+  category: "Restaurant Platform",
   description: "È una piattaforma enologica a Legnano: selezione premium di vini, cucina stagionale, degustazioni guidate e location per eventi privati. Prenota subito la tua esperienza enogastronomica unica nel cuore di Legnano",
   url: "https://labullelegnano.netlify.app/",
   tech: ["Next.js", "TypeScript", "Tailwind CSS", "Framer Motion"],
