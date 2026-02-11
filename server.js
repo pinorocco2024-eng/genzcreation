@@ -1,18 +1,8 @@
-// server.js — Express backend for GenZCreation
-// - POST /api/chat     -> Gemini
-// - POST /api/contact  -> Resend (contact form)
-// Avvio:
+// server.js — Express backend (Gemini chat + Resend contact)
+// Start:
 //   node --env-file=.env server.js
-// oppure:
+// or:
 //   node --env-file=.env.local server.js
-//
-// .env esempio:
-//   PORT=3001
-//   GEMINI_API_KEY=...
-//   GEMINI_MODEL=gemini-3-flash-preview
-//   RESEND_API_KEY=re_...
-//   RESEND_TO=info@genzcreation.it
-//   RESEND_FROM="GenZCreation <noreply@genzcreation.it>"
 
 import express from "express";
 import { Resend } from "resend";
@@ -23,60 +13,54 @@ console.log("PID:", process.pid);
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
-const PORT = process.env.PORT || 3001;
-
-// Gemini
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
-
-// Resend
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_TO = process.env.RESEND_TO;
-const RESEND_FROM = process.env.RESEND_FROM;
-
-// Init Resend
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
-
-// CORS (dev-friendly; restringi in prod se vuoi)
+// CORS (dev)
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS, GET");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
-// Health check
+const PORT = Number(process.env.PORT || 3001);
+
+// ENV
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_TO = process.env.RESEND_TO;
+const RESEND_FROM = process.env.RESEND_FROM;
+
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+
+// Health
 app.get("/", (req, res) => {
   res.type("text/plain").send("OK - GenZCreation server. POST /api/chat | POST /api/contact");
 });
 
 // ----------------------
-// 1) GEMINI CHAT ENDPOINT
+// CHAT (Gemini)
 // ----------------------
 app.post("/api/chat", async (req, res) => {
+  console.log("HIT /api/chat");
+
   try {
-    if (!GEMINI_API_KEY) {
-      return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
-    }
+    if (!GEMINI_API_KEY) return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
 
     const { message, history } = req.body || {};
-    const userMessage = (message || "").trim();
-    if (!userMessage) {
-      return res.status(400).json({ error: "Missing message" });
-    }
+    const userMessage = String(message || "").trim();
+    if (!userMessage) return res.status(400).json({ error: "Missing message" });
 
-    // history: [{ role: "user"|"assistant", text: "..." }]
     const safeHistory = Array.isArray(history) ? history : [];
 
     const SYSTEM_TEXT =
       "Sei l'assistente virtuale di GenZCreation.it. " +
-      "Rispondi SEMPRE in italiano, in modo amichevole e professionale. " +
+      "Rispondi SEMPRE in italiano, amichevole e professionale. " +
       "Aiuta su: siti web, UI/UX, e-commerce, SEO, web app, landing page e manutenzione. " +
       "Se servono dettagli, fai UNA domanda alla volta. Non inventare.";
 
     const contents = [
-      // system message semplice (funziona sempre)
       { role: "user", parts: [{ text: SYSTEM_TEXT }] },
       ...safeHistory
         .filter(
@@ -111,7 +95,6 @@ app.post("/api/chat", async (req, res) => {
     });
 
     const data = await upstream.json().catch(() => ({}));
-
     if (!upstream.ok) {
       console.error("GEMINI ERROR:", data);
       return res.status(500).json({
@@ -120,10 +103,8 @@ app.post("/api/chat", async (req, res) => {
     }
 
     const text =
-      data?.candidates?.[0]?.content?.parts
-        ?.map((p) => p?.text)
-        .filter(Boolean)
-        .join("") || "Ok.";
+      data?.candidates?.[0]?.content?.parts?.map((p) => p?.text).filter(Boolean).join("") ||
+      "Ok.";
 
     return res.json({ text });
   } catch (e) {
@@ -132,9 +113,9 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-// ----------------------------
-// 2) CONTACT FORM -> RESEND API
-// ----------------------------
+// ----------------------
+// CONTACT (Resend)
+// ----------------------
 app.post("/api/contact", async (req, res) => {
   console.log("HIT /api/contact", req.body);
 
@@ -148,6 +129,7 @@ app.post("/api/contact", async (req, res) => {
     const name = safe(req.body?.name).slice(0, 120);
     const email = safe(req.body?.email).slice(0, 200);
     const phone = safe(req.body?.phone).slice(0, 40);
+    const company = safe(req.body?.company).slice(0, 120);
     const subject = safe(req.body?.subject).slice(0, 200);
     const message = safe(req.body?.message).slice(0, 6000);
 
@@ -160,8 +142,9 @@ app.post("/api/contact", async (req, res) => {
         <p><strong>Nome:</strong> ${escapeHtml(name || "-")}</p>
         <p><strong>Email:</strong> ${escapeHtml(email)}</p>
         <p><strong>Telefono:</strong> ${escapeHtml(phone || "-")}</p>
+        <p><strong>Azienda:</strong> ${escapeHtml(company || "-")}</p>
         <p><strong>Oggetto:</strong> ${escapeHtml(subject || "-")}</p>
-        <hr />
+        <hr/>
         <p style="white-space:pre-wrap">${escapeHtml(message)}</p>
       </div>
     `;
@@ -186,7 +169,12 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
-// Helper anti HTML injection
+// 404 JSON (così capisci subito se una route manca)
+app.use((req, res) => {
+  console.log("404:", req.method, req.path);
+  res.status(404).json({ error: "Not Found", method: req.method, path: req.path });
+});
+
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&", "&amp;")
@@ -196,16 +184,6 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-// Mostra sempre le rotte registrate (debug super utile)
-console.log(
-  "REGISTERED ROUTES:",
-  app._router?.stack
-    ?.filter((r) => r.route)
-    .map((r) => Object.keys(r.route.methods).join(",").toUpperCase() + " " + r.route.path)
-);
-
 app.listen(PORT, () => {
   console.log(`Server running: http://localhost:${PORT}`);
-  console.log(`- Chat:    POST /api/chat`);
-  console.log(`- Contact: POST /api/contact`);
 });
