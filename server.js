@@ -1,7 +1,3 @@
-app.get("/", (req, res) => {
-  res.send("OK - Gemini chat server. Usa POST /api/chat");
-});
-
 import express from "express";
 
 const app = express();
@@ -9,60 +5,55 @@ app.use(express.json({ limit: "1mb" }));
 
 const PORT = process.env.PORT || 3001;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+const MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
 
-function toGeminiContents(messages) {
-  // Gemini: role "user" / "model" e parts[{text}]
-  return (messages || [])
-    .filter(
-      (m) =>
-        m &&
-        (m.role === "user" || m.role === "assistant") &&
-        typeof m.content === "string"
-    )
-    .slice(-20)
-    .map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
-}
-
-// CORS semplice per dev (se usi proxy Vite, puoi anche rimuoverlo)
+// CORS per dev
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS, GET");
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
+});
+
+// Health check
+app.get("/", (req, res) => {
+  res.send("OK - Gemini server. POST /api/chat");
 });
 
 app.post("/api/chat", async (req, res) => {
   try {
     if (!GEMINI_API_KEY) {
-      res.status(500).json({ error: "GEMINI_API_KEY non configurata" });
-      return;
+      return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
     }
 
-    const messages = req.body?.messages;
-    if (!Array.isArray(messages) || messages.length === 0) {
-      res.status(400).json({ error: "messages mancanti" });
-      return;
+    const { message, history } = req.body || {};
+    const userMessage = (message || "").trim();
+    if (!userMessage) {
+      return res.status(400).json({ error: "Missing message" });
     }
 
-    const systemInstruction = {
-      parts: [
-        {
-          text:
-            "Sei un assistente virtuale per GenZ Creation Sites, un'agenzia di sviluppo web moderna e innovativa. " +
-            "Rispondi sempre in italiano in modo amichevole e professionale. " +
-            "Aiuta i visitatori a conoscere i servizi: sviluppo web, design UI/UX, e-commerce, applicazioni web personalizzate. " +
-            "Sii conciso ma informativo. Non inventare.",
-        },
-      ],
-    };
+    // history: [{role:"user"|"assistant", text:"..."}]
+    const safeHistory = Array.isArray(history) ? history : [];
+
+    const systemText =
+      "Sei l'assistente virtuale di GenZCreation.it. Rispondi in italiano, amichevole e professionale. " +
+      "Aiuta su: siti web, UI/UX, e-commerce, SEO, web app. Se servono dettagli fai una domanda alla volta.";
+
+    const contents = [
+      { role: "user", parts: [{ text: systemText }] }, // (semplice, funziona)
+      ...safeHistory
+        .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.text === "string")
+        .slice(-12)
+        .map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.text }],
+        })),
+      { role: "user", parts: [{ text: userMessage }] },
+    ];
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-      GEMINI_MODEL
+      MODEL
     )}:generateContent`;
 
     const upstream = await fetch(url, {
@@ -72,37 +63,31 @@ app.post("/api/chat", async (req, res) => {
         "x-goog-api-key": GEMINI_API_KEY,
       },
       body: JSON.stringify({
-        systemInstruction,
-        contents: toGeminiContents(messages),
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 700,
-        },
+        contents,
+        generationConfig: { temperature: 0.4, maxOutputTokens: 700 },
       }),
     });
 
     const data = await upstream.json().catch(() => ({}));
 
     if (!upstream.ok) {
-      const msg =
-        data?.error?.message ||
-        `Errore Gemini: HTTP ${upstream.status}`;
-      res.status(500).json({ error: msg });
-      return;
+      return res.status(500).json({
+        error: data?.error?.message || `Gemini error HTTP ${upstream.status}`,
+      });
     }
 
     const text =
       data?.candidates?.[0]?.content?.parts
         ?.map((p) => p?.text)
         .filter(Boolean)
-        .join("") || "";
+        .join("") || "Ok.";
 
-    res.json({ text: text || "Ok." });
+    return res.json({ text });
   } catch (e) {
-    res.status(500).json({ error: e?.message || "Errore server" });
+    return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Server Gemini pronto: http://localhost:${PORT}`);
+  console.log(`Gemini server running: http://localhost:${PORT}`);
 });

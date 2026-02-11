@@ -8,37 +8,83 @@ import { useToast } from "@/hooks/use-toast";
 import { useContactForm } from "@/contexts/ContactFormContext";
 import { z } from "zod";
 
-type Message = {
-  role: "user" | "assistant";
-  content: string;
+type Message = { role: "user" | "assistant"; content: string };
+
+type ContactPayload = {
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  message: string;
 };
+
+const WELCOME_TEXT = "Ciao, hai domande sui nostri servizi? Sono qui per aiutarti!";
+
+function safeParseContactJson(text: string): ContactPayload | null {
+  // Cerca una riga tipo: CONTACT_JSON: {...}
+  const marker = "CONTACT_JSON:";
+  const idx = text.lastIndexOf(marker);
+  if (idx === -1) return null;
+
+  const jsonPart = text.slice(idx + marker.length).trim();
+  try {
+    const obj = JSON.parse(jsonPart);
+    const parsed = z
+      .object({
+        name: z.string().optional(),
+        email: z.string().optional(),
+        phone: z.string().optional(),
+        subject: z.string().optional(),
+        message: z.string().optional(),
+      })
+      .safeParse(obj);
+
+    if (!parsed.success) return null;
+
+    return {
+      name: parsed.data.name || "",
+      email: parsed.data.email || "",
+      phone: parsed.data.phone || "",
+      subject: parsed.data.subject || "",
+      message: parsed.data.message || "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function stripContactJson(text: string) {
+  const marker = "CONTACT_JSON:";
+  const idx = text.lastIndexOf(marker);
+  if (idx === -1) return text.trim();
+  return text.slice(0, idx).trim();
+}
 
 export const AIChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // welcome sempre disponibile quando chat chiusa e nessun messaggio
   const [showWelcome, setShowWelcome] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { setFormData } = useContactForm();
 
-  // Se il provider non c'è, non facciamo crashare il bot
-  let setFormData: ((data: any) => void) | undefined;
-  try {
-    ({ setFormData } = useContactForm());
-  } catch {
-    setFormData = undefined;
-  }
-
-  // Se usi il proxy Vite, lascia così:
+  // endpoint Next.js
   const CHAT_URL = "/api/chat";
 
-  // --- Extract contact info with validation ---
-  const extractContactInfo = (message: string) => {
+  // Estrazione base dall’utente (email + nome + oggetto + telefono)
+  const extractContactInfoFromUser = (message: string) => {
     const emailRegex =
       /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi;
+    const phoneRegex =
+      /(?:\+?\d{1,3}[\s-]?)?(?:\(?\d{2,4}\)?[\s-]?)?\d{6,10}/g;
+
     const emails = message.match(emailRegex);
+    const phones = message.match(phoneRegex);
 
     let validatedEmail = "";
     if (emails?.[0]) {
@@ -46,24 +92,24 @@ export const AIChatbot = () => {
       if (emailResult.success) validatedEmail = emails[0];
     }
 
+    let phone = "";
+    if (phones?.[0]) {
+      const cleaned = phones[0].replace(/[^\d+]/g, "");
+      if (cleaned.length >= 8 && cleaned.length <= 16) phone = cleaned;
+    }
+
     const namePatterns = [
-      /(?:il mio nome|mio nome)[:\s]+(?:è[:\s]+)?([a-z]+)/gi,
-      /(?:nome|mi chiamo|sono)[:\s]+([a-z]+)/gi,
-      /(?:nome)\s*[:]\s*([a-z]+)/gi,
+      /(?:il mio nome|mio nome)[:\s]+(?:è[:\s]+)?([a-zA-ZÀ-ÿ'\s-]{2,})/i,
+      /(?:mi chiamo|sono)[:\s]+([a-zA-ZÀ-ÿ'\s-]{2,})/i,
+      /(?:nome)\s*[:]\s*([a-zA-ZÀ-ÿ'\s-]{2,})/i,
     ];
 
     let name = "";
     for (const pattern of namePatterns) {
-      const match = pattern.exec(message);
+      const match = message.match(pattern);
       if (match?.[1]) {
-        const potentialName =
-          match[1].charAt(0).toUpperCase() + match[1].slice(1);
-        const nameResult = z
-          .string()
-          .min(2)
-          .max(100)
-          .regex(/^[a-zA-Z\s'-]+$/)
-          .safeParse(potentialName);
+        const potentialName = match[1].trim();
+        const nameResult = z.string().min(2).max(100).safeParse(potentialName);
         if (nameResult.success) {
           name = potentialName;
           break;
@@ -72,106 +118,123 @@ export const AIChatbot = () => {
     }
 
     const subjectPatterns = [
-      /(?:oggetto)[:\s]+(.+?)(?:\s+come oggetto|$)/gi,
-      /(?:oggetto|subject)\s*[:]\s*(.+?)(?:\s+e\s|,|$)/gi,
-      /(?:oggetto|subject)[:\s]+(.+?)(?:\.|$)/gi,
+      /(?:oggetto)[:\s]+(.+?)(?:$)/i,
+      /(?:subject)[:\s]+(.+?)(?:$)/i,
+      /(?:preventivo per|mi serve|vorrei)[:\s]+(.+?)(?:$)/i,
     ];
 
     let subject = "";
     for (const pattern of subjectPatterns) {
-      const match = pattern.exec(message);
+      const match = message.match(pattern);
       if (match?.[1]) {
-        const potentialSubject = match[1].trim();
-        const subjectResult = z
-          .string()
-          .min(3)
-          .max(200)
-          .safeParse(potentialSubject);
-        if (subjectResult.success) {
-          subject = potentialSubject;
+        const potential = match[1].trim();
+        const ok = z.string().min(3).max(200).safeParse(potential);
+        if (ok.success) {
+          subject = potential;
           break;
         }
       }
     }
 
-    return { email: validatedEmail, name, subject };
+    return { email: validatedEmail, name, phone, subject };
   };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen]);
 
+  // welcome: se chat chiusa e nessun messaggio, fallo vedere
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!isOpen && messages.length === 0) setShowWelcome(true);
-    }, 2000);
-    return () => clearTimeout(timer);
+    if (!isOpen && messages.length === 0) setShowWelcome(true);
   }, [isOpen, messages.length]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  const applyContactToForm = (payload: Partial<ContactPayload>) => {
+    const safePayload: ContactPayload = {
+      name: payload.name || "",
+      email: payload.email || "",
+      phone: payload.phone || "",
+      subject: payload.subject || "",
+      message: payload.message || "",
+    };
 
-    const userMessage: Message = { role: "user", content: input };
-    const updatedMessages = [...messages, userMessage];
+    setFormData({
+      name: safePayload.name,
+      email: safePayload.email,
+      phone: safePayload.phone,
+      subject: safePayload.subject,
+      message: safePayload.message,
+    });
 
-    setMessages(updatedMessages);
-
-    const contactInfo = extractContactInfo(input);
-    if (
-      setFormData &&
-      (contactInfo.email || contactInfo.name || contactInfo.subject)
-    ) {
-      setFormData({
-        email: contactInfo.email,
-        name: contactInfo.name,
-        subject: contactInfo.subject,
-        message: contactInfo.subject,
-      });
-
-      setTimeout(() => {
-        document
-          .getElementById("contact")
-          ?.scrollIntoView({ behavior: "smooth" });
-      }, 500);
-    }
-
-    setInput("");
-    setIsLoading(true);
-    setShowWelcome(false);
-
-    try {
-      const response = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages }),
-      });
-
-      const json = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const msg =
-          json?.error ||
-          `Errore HTTP ${response.status}`;
-        throw new Error(msg);
-      }
-
-      const assistantText =
-        typeof json?.text === "string" && json.text.trim()
-          ? json.text
-          : "Ok.";
-
-      setMessages([...updatedMessages, { role: "assistant", content: assistantText }]);
-    } catch (error: any) {
-      console.error("Chat error:", error);
-      toast({
-        title: "Errore",
-        description: error?.message || "Si è verificato un errore. Riprova più tardi.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    setTimeout(() => {
+      document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
+    }, 300);
   };
+
+  const sendMessage = async () => {
+  if (!input.trim() || isLoading) return;
+
+  const userText = input.trim();
+
+  const userMessage: Message = { role: "user", content: userText };
+  const updatedMessages = [...messages, userMessage];
+  setMessages(updatedMessages);
+
+  // autocompila contatti se l’utente scrive dati
+  const contactInfo = extractContactInfoFromUser(userText);
+  if (contactInfo.email || contactInfo.name || contactInfo.subject) {
+    setFormData({
+      email: contactInfo.email,
+      name: contactInfo.name,
+      subject: contactInfo.subject,
+      message: contactInfo.subject,
+    });
+
+    setTimeout(() => {
+      document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
+    }, 500);
+  }
+
+  setInput("");
+  setIsLoading(true);
+  setShowWelcome(false);
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: userText,
+        history: messages.slice(-10).map((m) => ({
+          role: m.role,
+          text: m.content,
+        })),
+      }),
+    });
+
+    const json = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(json?.error || `HTTP ${response.status}`);
+    }
+
+    const assistantText =
+      typeof json?.text === "string" && json.text.trim()
+        ? json.text
+        : "Ok.";
+
+    setMessages([...updatedMessages, { role: "assistant" as const, content: assistantText }]);
+  } catch (error: any) {
+    console.error("Chat error:", error);
+    toast({
+      title: "Errore",
+      description: error?.message || "Si è verificato un errore. Riprova più tardi.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -182,9 +245,9 @@ export const AIChatbot = () => {
 
   return (
     <>
-      {/* Welcome Bubble */}
+      {/* Welcome Bubble - sempre in basso quando chat chiusa e senza messaggi */}
       <AnimatePresence>
-        {showWelcome && !isOpen && (
+        {showWelcome && !isOpen && messages.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -205,12 +268,8 @@ export const AIChatbot = () => {
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-foreground font-medium mb-1">
-                    Ciao! 👋
-                  </p>
-                  <p className="text-xs text-foreground/70">
-                    Hai domande sui nostri servizi? Sono qui per aiutarti!
-                  </p>
+                  <p className="text-sm text-foreground font-medium mb-1">Ciao! 👋</p>
+                  <p className="text-xs text-foreground/70">{WELCOME_TEXT}</p>
                 </div>
               </div>
             </div>
