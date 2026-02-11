@@ -55,9 +55,9 @@ const portfolioProjects = [{
 }, {
   title: "Glacia",
   category: "SaaS Platform",
-  description: "Applicazione SaaS con autenticazione multi-provider (Google OAuth), interfaccia moderna e minimalista. Sistema di login sicuro con integrazione Stripe per pagamenti e design pulito focalizzato sull'esperienza utente",
-  url: "https://glacia.base44.app",
-  tech: ["React", "Supabase", "Google Auth", "Stripe"],
+  description: "È una piattaforma di automazione next‑gen: engine sub‑millisecondo, AI‑driven workflow, sicurezza quantistica e 5 000+ integrazioni. Prova il demo ora!",
+  url: "https://glacierautomation.vercel.app/",
+  tech: ["React", "VITE", "Supabase", "Stripe"],
   metrics: {
     performance: "96/100",
     conversions: "+210%",
