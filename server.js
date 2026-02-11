@@ -1,5 +1,24 @@
+// server.js — Express backend for GenZCreation
+// - POST /api/chat     -> Gemini
+// - POST /api/contact  -> Resend (contact form)
+// Avvio:
+//   node --env-file=.env server.js
+// oppure:
+//   node --env-file=.env.local server.js
+//
+// .env esempio:
+//   PORT=3001
+//   GEMINI_API_KEY=...
+//   GEMINI_MODEL=gemini-3-flash-preview
+//   RESEND_API_KEY=re_...
+//   RESEND_TO=info@genzcreation.it
+//   RESEND_FROM="GenZCreation <noreply@genzcreation.it>"
+
 import express from "express";
 import { Resend } from "resend";
+
+console.log("SERVER FILE:", new URL(import.meta.url).pathname);
+console.log("PID:", process.pid);
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -18,7 +37,7 @@ const RESEND_FROM = process.env.RESEND_FROM;
 // Init Resend
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
-// CORS (dev-friendly). In prod puoi restringere l'origine.
+// CORS (dev-friendly; restringi in prod se vuoi)
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -29,7 +48,7 @@ app.use((req, res, next) => {
 
 // Health check
 app.get("/", (req, res) => {
-  res.send("OK - GenZCreation server. POST /api/chat | POST /api/contact");
+  res.type("text/plain").send("OK - GenZCreation server. POST /api/chat | POST /api/contact");
 });
 
 // ----------------------
@@ -52,12 +71,12 @@ app.post("/api/chat", async (req, res) => {
 
     const SYSTEM_TEXT =
       "Sei l'assistente virtuale di GenZCreation.it. " +
-      "Rispondi in italiano, amichevole e professionale. " +
+      "Rispondi SEMPRE in italiano, in modo amichevole e professionale. " +
       "Aiuta su: siti web, UI/UX, e-commerce, SEO, web app, landing page e manutenzione. " +
-      "Se servono dettagli fai una domanda alla volta. Non inventare.";
+      "Se servono dettagli, fai UNA domanda alla volta. Non inventare.";
 
     const contents = [
-      // system instruction “semplice”
+      // system message semplice (funziona sempre)
       { role: "user", parts: [{ text: SYSTEM_TEXT }] },
       ...safeHistory
         .filter(
@@ -94,6 +113,7 @@ app.post("/api/chat", async (req, res) => {
     const data = await upstream.json().catch(() => ({}));
 
     if (!upstream.ok) {
+      console.error("GEMINI ERROR:", data);
       return res.status(500).json({
         error: data?.error?.message || `Gemini error HTTP ${upstream.status}`,
       });
@@ -107,6 +127,7 @@ app.post("/api/chat", async (req, res) => {
 
     return res.json({ text });
   } catch (e) {
+    console.error("CHAT SERVER ERROR:", e);
     return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
@@ -115,6 +136,8 @@ app.post("/api/chat", async (req, res) => {
 // 2) CONTACT FORM -> RESEND API
 // ----------------------------
 app.post("/api/contact", async (req, res) => {
+  console.log("HIT /api/contact", req.body);
+
   try {
     if (!resend) return res.status(500).json({ error: "Missing RESEND_API_KEY" });
     if (!RESEND_TO) return res.status(500).json({ error: "Missing RESEND_TO" });
@@ -128,7 +151,6 @@ app.post("/api/contact", async (req, res) => {
     const subject = safe(req.body?.subject).slice(0, 200);
     const message = safe(req.body?.message).slice(0, 6000);
 
-    // Validazioni minime
     if (!email) return res.status(400).json({ error: "Email obbligatoria" });
     if (!message) return res.status(400).json({ error: "Messaggio obbligatorio" });
 
@@ -153,19 +175,18 @@ app.post("/api/contact", async (req, res) => {
     });
 
     if (error) {
+      console.error("RESEND ERROR:", error);
       return res.status(500).json({ error: error.message || "Resend error" });
     }
 
-    // (Opzionale) autoresponder al cliente:
-    // Se lo vuoi, dimmelo e lo attivo con un secondo invio.
-
     return res.json({ ok: true, id: data?.id || null });
   } catch (e) {
+    console.error("CONTACT SERVER ERROR:", e);
     return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
 
-// Helper: evita injection HTML nell’email
+// Helper anti HTML injection
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&", "&amp;")
@@ -174,6 +195,14 @@ function escapeHtml(str) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+// Mostra sempre le rotte registrate (debug super utile)
+console.log(
+  "REGISTERED ROUTES:",
+  app._router?.stack
+    ?.filter((r) => r.route)
+    .map((r) => Object.keys(r.route.methods).join(",").toUpperCase() + " " + r.route.path)
+);
 
 app.listen(PORT, () => {
   console.log(`Server running: http://localhost:${PORT}`);
