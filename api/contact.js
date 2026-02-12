@@ -56,6 +56,7 @@ export default async function handler(req, res) {
     });
 
     if (error) return res.status(500).json({ error: error.message || "Resend error" });
+
     return res.status(200).json({ ok: true, id: data?.id || null });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Server error" });
