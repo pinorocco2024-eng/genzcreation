@@ -5,27 +5,27 @@ import { ExternalLink, ArrowRight, Star } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 const portfolioProjects = [{
-  title: "FlashLearn Igloo Edition",
-  category: "E-Learning Platform",
-  description: "Piattaforma e-learning completa con sistema di flashcard interattive, autenticazione Google integrata e gestione intelligente dello studio. Design moderno con focus sull'esperienza utente e gamificazione dell'apprendimento",
-  url: "https://flashlearniglooedition.base44.app",
+  title: "StudyVerse – AI‑Powered Flashcard & Quiz Platform",
+  category: "EdTech / E‑Learning",
+  description: "Piattaforma web che, tramite OpenAI, trasforma appunti, PDF o immagini in quiz a risposta multipla e flashcard interattive, permette di condividerle nella community e di sfidare altri utenti",
+  url: "https://studverse.lovable.app",
   tech: ["React", "Supabase", "Google Auth", "Stripe"],
   metrics: {
     performance: "95/100",
     conversions: "+220%",
     loadTime: "0.8s"
   },
-  features: ["Autenticazione Multi-provider", "Sistema Flashcard Intelligente", "Tracking Progressi"]
+  features: ["Gestione utenti con Clerk ", "Sistema Flashcard Intelligente", "Community integrata"]
 },{
   title: "Sfratto Morosi",
   category: "Lawyer Services Platform",
   description: "È una piattaforma per sfratto per morosità: analisi gratuita, procedura legale completa, preventivo chiaro e ordinanza in 90 giorni. Richiedi consulenza ora!",
   url: "https://sfrattomorosi.it",
-  tech: ["React", "TypeScript", "Tailwind CSS", "Framer Motion"],
+  tech: ["Next.js / React ", "OpenAI GPT ", "Clerk", "Supabase / PostgreSQL"],
   metrics: {
-    performance: "93/100",
-    conversions: "+190%",
-    loadTime: "1.1s"
+    performance: "92/100",
+    conversions: "+130%",
+    loadTime: "0.9s"
   },
   features: ["Chatbot integrato", "Prenotazione Online", "Automazione Prenotazioni"]
 },{
