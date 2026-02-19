@@ -113,17 +113,17 @@ const portfolioProjects = [{
   },
   features: ["Prenotazioni Online", "Area Clienti Sicura", "Blog Ottimizzato SEO"]
 }, {
-  title: "Nexus Architect",
-  category: "Architecture & Design",
-  description: "Portfolio digitale per studio di architettura contemporanea con galleria progetti ad alta risoluzione, filtri per categoria, configuratore 3D per visualizzazione progetti e form contatto integrato",
-  url: "https://nexusarchitect.base44.app",
-  tech: ["Vue.js", "Nuxt", "Sanity CMS", "Cloudinary"],
+  title: "NeoBank Z – The Future of Finance",
+  category: "FinTech / Digital Banking Platform",
+  description: "Piattaforma‑gioco di finanza digitale: sincronizza il tuo “vault” per entrare nell’arena, accedi a un cruscotto live con carte, conti e crypto‑wallet, grafiche moderne e login multi‑provider ottimizzate per desktop e mobile.",
+  url: "https://neobank-z.vercel.app/",
+  tech: ["Next.js / React", "Supabase", "Tailwind CSS"],
   metrics: {
-    performance: "93/100",
-    conversions: "+152%",
-    loadTime: "1.3s"
+    performance: "94/100",
+    conversions: "+180%",
+    loadTime: "0.9s"
   },
-  features: ["Galleria HD Ottimizzata", "Filtri Progetti Dinamici", "Viewer 3D Interattivo"]
+  features: ["Autenticazione Multi‑provider + Vault Sync", "Gestione di conti, carte e crypto‑wallet", "Dashboard finanziario in tempo reale"]
 }, {
   title: "Daclè SA",
   category: "Pharmaceutical Corporate",
