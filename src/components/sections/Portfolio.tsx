@@ -65,17 +65,17 @@ const portfolioProjects = [{
   },
   features: ["Google OAuth Integration", "Design Minimalista", "Pagamenti Sicuri"]
 }, {
-  title: "ImmobilTarget",
-  category: "Real Estate Platform",
-  description: "Piattaforma immobiliare completa per agenzia di Legnano con ricerca immobili avanzata, AI Assistant integrato per assistenza clienti, sistema di valutazione automatica e dashboard area utente. Design moderno dark theme con focus su conversioni",
-  url: "https://immobiltarget.base44.app",
-  tech: ["React", "TypeScript", "AI Integration", "Supabase"],
-  metrics: {
-    performance: "94/100",
-    conversions: "+185%",
-    loadTime: "1.0s"
-  },
-  features: ["AI Assistant Integrato", "Valutazioni Automatiche", "Ricerca Avanzata Immobili"]
+  title:  "Sapientia Daily Verse",
+  category: "Well‑being / Quote & Inspiration App",
+  description: "App minimalista che propone una frase ispiratrice al giorno, pensata per aumentare chiarezza e motivazione. L’utente si registra con login social, riceve il “verse” quotidiano ",
+  url: "https://sapient1a.vercel.app/",
+ tech: ["Next.js / React", "Supabase (auth + DB)", "Google / GitHub Auth", "Tailwind CSS"],
+ metrics: {
+performance: "93/100",
+conversions: "+150%",
+loadTime: "0.7s"
+},
+  features: ["Login Social Multi‑provider", "Verse Quotidiano Personalizzato", "Salvataggio & Condivisione Citazioni", "Cronologia Personale"]
 }, {
   title: "Adam Brilla Green",
   category: "Sustainability & Green Tech",
